@@ -39,36 +39,36 @@ def is_terminal(board: Board) -> bool:
     return False
 
 
-def minmax_max_component(board: Board, move: Move, depth: int, nodes_visited: Set[Board]) -> Tuple[float, Move]:
+def minmax_max_component(board: Board, depth: int, nodes_visited: Set[Board]) -> Tuple[float, Optional[Move]]:
     nodes_visited.add(board)
     if depth == 0 or is_terminal(board):
-        return evaluate(board), move
+        return evaluate(board), None
     best_move = None
     best_score = -float('inf')
     for move in board.legal_moves():
         new_board = board.clone()
         new_board.make(move)
-        value, made_move = minimax_min_component(new_board, move, depth - 1, nodes_visited)
+        value, made_move = minmax_min_component(new_board, move, depth - 1, nodes_visited)
         if value > best_score:
             best_score = value
-            best_move = made_move
+            best_move = move
     return best_score, best_move
 
 
 
-def minimax_min_component(board: Board, move: Move, depth: int, nodes_visited: Set[Board]) -> Tuple[float, Move]:
+def minmax_min_component(board: Board, depth: int, nodes_visited: Set[Board]) -> Tuple[float,  Optional[Move]]:
     nodes_visited.add(board)
     if depth == 0 or is_terminal(board):
-        return evaluate(board), move
+        return evaluate(board), None
     best_move = None
     best_score = float('inf')
     for move in board.legal_moves():
         new_board = board.clone()
         new_board.make(move)
-        value, made_move = minimax_min_component(new_board, move, depth - 1, nodes_visited)
+        value, made_move = minmax_min_component(new_board, move, depth - 1, nodes_visited)
         if value < best_score:
             best_score = value
-            best_move = made_move
+            best_move = move
     return best_score, best_move
 
 
@@ -80,14 +80,19 @@ def choose_minimax_move(board: Board, depth: int=2, metrics=None) -> Tuple[Move,
     Returns:
         (best_move, nodes_visited)
     """
-    raise NotImplementedError("Implement minimax search in ai.py")
+    nodes_visited = set()
+    if board.turn == 'white':
+        best_score, best_move = minmax_max_component(board, depth, nodes_visited)
+    else:
+        best_score, best_move = minmax_min_component(board, depth, nodes_visited)
+    return best_move, nodes_visited
 
 
-def alpha_beta_max_component(board: Board, move: Move, depth: int, nodes_visited: Set[Board],
-                             alpha: float = -float('inf'), beta: float = float('inf')) -> Tuple[float, Move]:
+def alpha_beta_max_component(board: Board, depth: int, nodes_visited: Set[Board],
+                             alpha: float = -float('inf'), beta: float = float('inf')) -> Tuple[float,  Optional[Move]]:
     nodes_visited.add(board)
     if depth == 0 or is_terminal(board):
-        return evaluate(board), move
+        return evaluate(board), None
     best_move = None
     best_score = -float('inf')
     for move in board.legal_moves():
@@ -96,7 +101,7 @@ def alpha_beta_max_component(board: Board, move: Move, depth: int, nodes_visited
         value, made_move = alpha_beta_min_component(new_board, move, depth - 1, nodes_visited, alpha, beta)
         if value > best_score:
             best_score = value
-            best_move = made_move
+            best_move = move
             alpha = max(alpha, best_score)
             if alpha >= beta:
                 return best_score, best_move
@@ -104,11 +109,11 @@ def alpha_beta_max_component(board: Board, move: Move, depth: int, nodes_visited
 
 
 
-def alpha_beta_min_component(board: Board, move: Move, depth: int, nodes_visited: Set[Board],
-                             alpha: float = -float('inf'), beta: float = float('inf')) -> Tuple[float, Move]:
+def alpha_beta_min_component(board: Board, depth: int, nodes_visited: Set[Board],
+                             alpha: float = -float('inf'), beta: float = float('inf')) -> Tuple[float,  Optional[Move]]:
     nodes_visited.add(board)
     if depth == 0 or is_terminal(board):
-        return evaluate(board), move
+        return evaluate(board), None
     best_move = None
     best_score = float('inf')
     for move in board.legal_moves():
@@ -117,7 +122,7 @@ def alpha_beta_min_component(board: Board, move: Move, depth: int, nodes_visited
         value, made_move = alpha_beta_min_component(new_board, move, depth - 1, nodes_visited, alpha, beta)
         if value < best_score:
             best_score = value
-            best_move = made_move
+            best_move = move
             beta = min(beta, best_score)
             if alpha >= beta:
                 return best_score, best_move
@@ -131,4 +136,9 @@ def choose_alphabeta_move(board: Board, depth: int=3, metrics=None):
     Returns:
         (best_move, nodes_visited)
     """
-    raise NotImplementedError("Implement alpha-beta search in ai.py")
+    nodes_visited = set()
+    if board.turn == 'white':
+        best_score, best_move = alpha_beta_max_component(board, depth, nodes_visited)
+    else:
+        best_score, best_move = alpha_beta_min_component(board, depth, nodes_visited)
+    return best_move, nodes_visited
