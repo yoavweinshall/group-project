@@ -137,6 +137,25 @@ def is_terminal(board: Board) -> bool:
     return False
 
 
+def get_move_score(board: Board, move: Move) -> int:
+    start_r, start_c = move.src
+    end_r, end_c = move.dst
+
+    target_piece = board.piece_at(end_r, end_c)
+    score = 0
+
+    if target_piece:
+        attacker_piece = board.piece_at(start_r, start_c)
+        victim_val = PIECES_SCORE.get(target_piece[1], 0)
+        attacker_val = PIECES_SCORE.get(attacker_piece[1], 0) if attacker_piece else 0
+        score = 10 * victim_val - attacker_val
+
+    if move.promote:
+        score += 1000
+
+    return score
+
+
 def minmax_max_component(board: Board, depth: int, nodes_visited: Set[Board]) -> Tuple[float, Optional[Move]]:
     """
     Goes over all possibilities to move and return the one that that will give us the biggest value according to minmax algorithm
@@ -177,7 +196,7 @@ def minmax_min_component(board: Board, depth: int, nodes_visited: Set[Board]) ->
     for move in board.legal_moves():
         new_board = board.clone()
         new_board.make(move)
-        value, made_move = minmax_min_component(new_board, depth - 1, nodes_visited)
+        value, made_move = minmax_max_component(new_board, depth - 1, nodes_visited)
         if value < best_score:
             best_score = value
             best_move = move
@@ -217,13 +236,11 @@ def alpha_beta_max_component(board: Board, depth: int, nodes_visited: Set[Board]
         return evaluate(board), None
     best_move = None
     best_score = -float('inf')
-    new_boards =[]
-    for move in board.legal_moves():
+    legal_moves = list(board.legal_moves())
+    legal_moves.sort(key=lambda m: get_move_score(board, m))
+    for move in legal_moves:
         new_board = board.clone()
         new_board.make(move)
-        new_boards.append((new_board, move))
-    new_boards.sort(key=lambda new_b: evaluate(new_b[0]))
-    for new_board, move in new_boards:
         value, made_move = alpha_beta_min_component(new_board, depth - 1, nodes_visited, alpha, beta)
         if value > best_score:
             best_score = value
@@ -252,13 +269,11 @@ def alpha_beta_min_component(board: Board, depth: int, nodes_visited: Set[Board]
         return evaluate(board), None
     best_move = None
     best_score = float('inf')
-    new_boards = []
-    for move in board.legal_moves():
+    legal_moves = list(board.legal_moves())
+    legal_moves.sort(key=lambda m: get_move_score(board, m), reverse=True)
+    for move in legal_moves:
         new_board = board.clone()
         new_board.make(move)
-        new_boards.append((new_board, move))
-    new_boards.sort(key=lambda new_b: evaluate(new_b[0]), reverse=True)
-    for new_board, move in new_boards:
         value, made_move = alpha_beta_max_component(new_board, depth - 1, nodes_visited, alpha, beta)
         if value < best_score:
             best_score = value
