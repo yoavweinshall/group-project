@@ -113,6 +113,16 @@ def get_loc_score(board: Board, r: int, c: int) -> int:
     return 0
 
 
+def raw_heuristic(board: Board) -> int:
+    score = 0
+    # gives pieces score based on their location
+    for r in range(8):
+        for c in range(8):
+            if board.piece_at(r, c):
+                score += get_loc_score(board, r, c)
+    return score
+
+
 def evaluate(board: Board) -> float:
     """
     Calculate heuristic score from White's perspective.
@@ -125,15 +135,7 @@ def evaluate(board: Board) -> float:
         if board.turn == 'white':
             return float('inf')
         return -float('inf')
-
-    score = 0
-    #gives pieces score based on their location
-    for r in range(8):
-        for c in range(8):
-            if board.piece_at(r, c):
-                score += get_loc_score(board, r, c)
-    return score
-
+    return raw_heuristic(board)
 
 
 def is_terminal(board: Board) -> bool:
@@ -194,7 +196,6 @@ def minmax_max_component(board: Board, depth: int, nodes_visited: Set[Board]) ->
     return best_score, best_move
 
 
-
 def minmax_min_component(board: Board, depth: int, nodes_visited: Set[Board]) -> Tuple[float,  Optional[Move]]:
     """
     Goes over all possibilities to move and return the one that that will give us the smallest value according to minmax algorithm
@@ -218,7 +219,6 @@ def minmax_min_component(board: Board, depth: int, nodes_visited: Set[Board]) ->
     return best_score, best_move
 
 
-
 def choose_minimax_move(board: Board, depth: int=2, metrics=None) -> Tuple[Move, Set[Board]]:
     """
     Pick a move for the current player using minimax (no pruning).
@@ -234,6 +234,32 @@ def choose_minimax_move(board: Board, depth: int=2, metrics=None) -> Tuple[Move,
     return best_move, nodes_visited
 
 
+def get_ordered_moves(board: Board, best_move_cache: Dict, board_key):
+    """
+    Order the legal moves properly to save time while branching
+    :param board: current state of the board.
+    :param best_move_cache: cached best move for current player.
+    :param board_key: key for board.
+    :return: ordered moves to branch
+    """
+    legal_moves = list(board.legal_moves())
+    hash_move = best_move_cache.get(board_key)
+
+    if hash_move:
+        others = []
+        found_hash = False
+        for move in legal_moves:
+            if move.src == hash_move.src and move.dst == hash_move.dst:
+                found_hash = True
+            else:
+                others.append(move)
+        others.sort(key=lambda m: get_move_score(board, m), reverse=True)
+        if found_hash:
+            return [hash_move] + others
+        return others
+    legal_moves.sort(key=lambda m: get_move_score(board, m), reverse=True)
+    return legal_moves
+
 def alpha_beta_max_component(board: Board, depth: int, best_move_cache: Dict, nodes_visited: Set[Board],
                              alpha: float = -float('inf'), beta: float = float('inf')) -> Tuple[float,  Optional[Move]]:
     """
@@ -241,6 +267,7 @@ def alpha_beta_max_component(board: Board, depth: int, best_move_cache: Dict, no
     Uses alpha-beta pruning to avoid exploring dead cause branches and save compute time
     :param board: current state of the board.
     :param depth: depth to go into game branches
+    :param best_move_cache: cached best moves
     :param nodes_visited: set of boards visited while calculating next move.
     :param alpha: lower bound on the score we already secured in previous branches
     :param beta: upper bound on the score we already secured in previous branches
@@ -248,15 +275,19 @@ def alpha_beta_max_component(board: Board, depth: int, best_move_cache: Dict, no
     """
 
     board_key = get_board_key(board)
-    hash_move = best_move_cache.get(board_key)
     nodes_visited.add(board)
-    if depth == 0 or is_terminal(board):
-        return evaluate(board), None
+    if depth == 0:
+        if not board.is_check(board.turn):
+            return raw_heuristic(board), None
+        if not list(board.legal_moves()):
+            return float('-inf'), None
+        return raw_heuristic(board), None
+
     best_move = None
     best_score = -float('inf')
-    legal_moves = list(board.legal_moves())
-    legal_moves.sort(key=lambda m: (float('inf') if m.src == hash_move.src and m.dst == hash_move.dst else get_move_score(board, m)) if hash_move
-                                else get_move_score(board, m), reverse=True)
+    legal_moves = get_ordered_moves(board, best_move_cache, board_key)
+    if not legal_moves:
+        return evaluate(board), None
     for move in legal_moves:
         new_board = board.clone()
         new_board.make(move)
@@ -280,21 +311,26 @@ def alpha_beta_min_component(board: Board, depth: int, best_move_cache: Dict, no
     Uses alpha-beta pruning to avoid exploring dead cause branches and save compute time.
     :param board: current state of the board.
     :param depth: depth to go into game branches
+    :param best_move_cache: cached best moves
     :param nodes_visited: set of boards visited while calculating next move.
     :param alpha: lower bound on the score we already secured in previous branches
     :param beta: upper bound on the score we already secured in previous branches
     :return: tuple of best move score (lowest) and move itself
     """
     board_key = get_board_key(board)
-    hash_move = best_move_cache.get(board_key)
     nodes_visited.add(board)
-    if depth == 0 or is_terminal(board):
-        return evaluate(board), None
+    if depth == 0:
+        if not board.is_check(board.turn):
+            return raw_heuristic(board), None
+        if not list(board.legal_moves()):
+            return float('inf'), None
+        return raw_heuristic(board), None
+
     best_move = None
     best_score = float('inf')
-    legal_moves = list(board.legal_moves())
-    legal_moves.sort(key=lambda m: (float('inf') if m.src == hash_move.src and m.dst == hash_move.dst else get_move_score(board, m)) if hash_move
-                                else get_move_score(board, m), reverse=True)
+    legal_moves = get_ordered_moves(board, best_move_cache, board_key)
+    if not legal_moves:
+        return evaluate(board), None
     for move in legal_moves:
         new_board = board.clone()
         new_board.make(move)
