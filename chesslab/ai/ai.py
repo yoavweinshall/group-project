@@ -13,7 +13,7 @@ The helper `choose_random_move` is provided for you.
 from __future__ import annotations
 
 import random
-from typing import Optional, Tuple, Set
+from typing import Optional, Tuple, Set, Dict
 
 from ..board import Board, Move
 from ..common.profiling import Counter
@@ -83,6 +83,15 @@ PIECES_LOCATION_SCORE = {'P':[
                 }
 
 
+def get_board_key(board):
+    """
+    Hash function for bored to moves_cache
+    :param board: the board to hash
+    :return: the hash key
+    """
+    return board.turn, tuple(tuple(row) for row in board.board)
+
+
 def choose_random_move(board: Board) -> Move:
     """Return a uniformly random legal move or None if no moves exist."""
     legal = board.legal_moves()
@@ -138,6 +147,12 @@ def is_terminal(board: Board) -> bool:
 
 
 def get_move_score(board: Board, move: Move) -> int:
+    """
+    evaluate score of single move to determine order of going over moves in the alpha-bete pruning
+    :param board: current state of the board.
+    :param move: move to evaluate.
+    :return: score of move
+    """
     start_r, start_c = move.src
     end_r, end_c = move.dst
 
@@ -219,7 +234,7 @@ def choose_minimax_move(board: Board, depth: int=2, metrics=None) -> Tuple[Move,
     return best_move, nodes_visited
 
 
-def alpha_beta_max_component(board: Board, depth: int, nodes_visited: Set[Board],
+def alpha_beta_max_component(board: Board, depth: int, best_move_cache: Dict, nodes_visited: Set[Board],
                              alpha: float = -float('inf'), beta: float = float('inf')) -> Tuple[float,  Optional[Move]]:
     """
     Goes over possibilities to move and return the one that that will give us the biggest value according to minmax algorithm.
@@ -231,28 +246,34 @@ def alpha_beta_max_component(board: Board, depth: int, nodes_visited: Set[Board]
     :param beta: upper bound on the score we already secured in previous branches
     :return: tuple of best move score (highest) and move itself
     """
+
+    board_key = get_board_key(board)
+    hash_move = best_move_cache.get(board_key)
     nodes_visited.add(board)
     if depth == 0 or is_terminal(board):
         return evaluate(board), None
     best_move = None
     best_score = -float('inf')
     legal_moves = list(board.legal_moves())
-    legal_moves.sort(key=lambda m: get_move_score(board, m))
+    legal_moves.sort(key=lambda m: (float('inf') if m.src == hash_move.src and m.dst == hash_move.dst else get_move_score(board, m)) if hash_move
+                                else get_move_score(board, m), reverse=True)
     for move in legal_moves:
         new_board = board.clone()
         new_board.make(move)
-        value, made_move = alpha_beta_min_component(new_board, depth - 1, nodes_visited, alpha, beta)
+        value, made_move = alpha_beta_min_component(new_board, depth - 1, best_move_cache, nodes_visited, alpha, beta)
         if value > best_score:
             best_score = value
             best_move = move
             alpha = max(alpha, best_score)
             if alpha >= beta:
+                best_move_cache[board_key] = best_move
                 return best_score, best_move
+    best_move_cache[board_key] = best_move
     return best_score, best_move
 
 
 
-def alpha_beta_min_component(board: Board, depth: int, nodes_visited: Set[Board],
+def alpha_beta_min_component(board: Board, depth: int, best_move_cache: Dict, nodes_visited: Set[Board],
                              alpha: float = -float('inf'), beta: float = float('inf')) -> Tuple[float,  Optional[Move]]:
     """
     Goes over possibilities to move and return the one that that will give us the smallest value according to minmax algorithm.
@@ -264,23 +285,28 @@ def alpha_beta_min_component(board: Board, depth: int, nodes_visited: Set[Board]
     :param beta: upper bound on the score we already secured in previous branches
     :return: tuple of best move score (lowest) and move itself
     """
+    board_key = get_board_key(board)
+    hash_move = best_move_cache.get(board_key)
     nodes_visited.add(board)
     if depth == 0 or is_terminal(board):
         return evaluate(board), None
     best_move = None
     best_score = float('inf')
     legal_moves = list(board.legal_moves())
-    legal_moves.sort(key=lambda m: get_move_score(board, m), reverse=True)
+    legal_moves.sort(key=lambda m: (float('inf') if m.src == hash_move.src and m.dst == hash_move.dst else get_move_score(board, m)) if hash_move
+                                else get_move_score(board, m), reverse=True)
     for move in legal_moves:
         new_board = board.clone()
         new_board.make(move)
-        value, made_move = alpha_beta_max_component(new_board, depth - 1, nodes_visited, alpha, beta)
+        value, made_move = alpha_beta_max_component(new_board, depth - 1, best_move_cache, nodes_visited, alpha, beta)
         if value < best_score:
             best_score = value
             best_move = move
             beta = min(beta, best_score)
             if alpha >= beta:
+                best_move_cache[board_key] = best_move
                 return best_score, best_move
+    best_move_cache[board_key] = best_move
     return best_score, best_move
 
 
@@ -291,9 +317,13 @@ def choose_alphabeta_move(board: Board, depth: int=3, metrics=None):
     Returns:
         (best_move, nodes_visited)
     """
+    move_cache = {}
     nodes_visited = set()
-    if board.turn == 'white':
-        best_score, best_move = alpha_beta_max_component(board, depth, nodes_visited)
-    else:
-        best_score, best_move = alpha_beta_min_component(board, depth, nodes_visited)
+    best_move = None
+    # iterative deeping
+    for current_d in range(1, depth + 1):
+        if board.turn == 'white':
+            best_score, best_move = alpha_beta_max_component(board, current_d, move_cache,nodes_visited)
+        else:
+            best_score, best_move = alpha_beta_min_component(board, current_d, move_cache,nodes_visited)
     return best_move, nodes_visited
