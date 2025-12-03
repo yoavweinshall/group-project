@@ -13,7 +13,7 @@ The helper `choose_random_move` is provided for you.
 from __future__ import annotations
 
 import random
-from typing import Optional, Tuple, Set, Dict
+from typing import Optional, Tuple, Set
 
 from ..board import Board, Move
 from ..common.profiling import Counter
@@ -353,9 +353,9 @@ def choose_alphabeta_move(board: Board, depth: int=3, metrics=None):
     """
     nodes_visited = set()
     if board.turn == 'white':
-        best_score, best_move = alpha_beta_max_component(board, current_d, nodes_visited)
+        best_score, best_move = alpha_beta_max_component(board, depth, nodes_visited)
     else:
-        best_score, best_move = alpha_beta_min_component(board, current_d, nodes_visited)
+        best_score, best_move = alpha_beta_min_component(board, depth, nodes_visited)
     return best_move, nodes_visited
 
 
