@@ -20,7 +20,8 @@ from ..common.profiling import Counter
 
 MoveType = Tuple[Tuple[int, int], Tuple[int, int], Optional[str]]
 PIECES_SCORE = {'P':100, 'N': 320, 'B': 330, 'R': 500, 'Q': 900, 'K': 20000}
-PIECES_LOCATION_SCORE = {'P':[
+PIECES_LOCATION_SCORE = {
+                'P':[
                         [0,  0,  0,  0,  0,  0,  0,  0],
                         [50, 50, 50, 50, 50, 50, 50, 50],
                         [10, 10, 20, 30, 30, 20, 10, 10],
@@ -81,7 +82,6 @@ PIECES_LOCATION_SCORE = {'P':[
                         [20, 30, 10,  0,  0, 10, 30, 20]
                     ]
                 }
-
 MOVE_CACHE = {}
 
 
@@ -131,7 +131,6 @@ def evaluate(board: Board) -> float:
     :param board: current state of the board.
     :return: heuristic score
     """
-
     # check terminal state of game
     if is_terminal(board):
         if board.turn == 'white':
@@ -261,6 +260,7 @@ def get_ordered_moves(board: Board, board_key):
     legal_moves.sort(key=lambda m: get_move_score(board, m), reverse=True)
     return legal_moves
 
+
 def alpha_beta_max_component(board: Board, depth: int, nodes_visited: Set[Board],
                              alpha: float = -float('inf'), beta: float = float('inf')) -> Tuple[float,  Optional[Move]]:
     """
@@ -301,7 +301,6 @@ def alpha_beta_max_component(board: Board, depth: int, nodes_visited: Set[Board]
                 return best_score, best_move
     MOVE_CACHE[board_key] = best_move
     return best_score, best_move
-
 
 
 def alpha_beta_min_component(board: Board, depth: int, nodes_visited: Set[Board],
@@ -353,11 +352,17 @@ def choose_alphabeta_move(board: Board, depth: int=3, metrics=None):
         (best_move, nodes_visited)
     """
     nodes_visited = set()
-    best_move = None
-    # iterative deeping
-    for current_d in range(1, depth + 1):
-        if board.turn == 'white':
-            best_score, best_move = alpha_beta_max_component(board, current_d, nodes_visited)
-        else:
-            best_score, best_move = alpha_beta_min_component(board, current_d, nodes_visited)
+    if board.turn == 'white':
+        best_score, best_move = alpha_beta_max_component(board, current_d, nodes_visited)
+    else:
+        best_score, best_move = alpha_beta_min_component(board, current_d, nodes_visited)
     return best_move, nodes_visited
+
+
+def choose_move(board: Board):
+    # iterative deeping
+    for depth in range(1, 50):
+        best_score, best_move = choose_alphabeta_move(board, depth)
+        if best_move:
+            yield best_move
+
