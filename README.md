@@ -10,3 +10,8 @@ Self-contained chess GUI + AI assignment.
 - Rules: all standard moves **except** castling & en passant (omitted for clarity). Promotion->Queen.
 - GUI: click piece then destination. Modes: Human vs Human, Human vs AI, AI vs AI.
 - Supported AI algorithms: random, eval, minimax, alphabeta. All AI implementation code in located at `chesslab/ai/ai.py`
+
+
+#Versions
+
+  - MS1- Normal minmax and alpha-bete pruning 
