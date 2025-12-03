@@ -18,8 +18,8 @@ To do so:
   - I added IDS that yields The best move we found in every layer (to handle time limits per play)
   - The board to explore are sorted based on board evaluation
 With those 2 additions I hope to cut branches much faster and save running time.
-In addition, I wrote the huristic function to minimize the calls to legal_moves since this function takes a lot of time to run
- 
+
+In addition, I wrote the huristic function to minimize the calls to legal_moves since this function takes a lot of time to run 
 
 
 #Versions
