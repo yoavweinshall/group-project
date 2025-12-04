@@ -82,6 +82,16 @@ PIECES_LOCATION_SCORE = {
                         [20, 30, 10,  0,  0, 10, 30, 20]
                     ]
                 }
+KING_ENDGAME_SCORE = [  # King endgame table - encourages moving to the center
+    [-50,-40,-30,-20,-20,-30,-40,-50],
+    [-30,-20,-10,  0,  0,-10,-20,-30],
+    [-30,-10, 20, 30, 30, 20,-10,-30],
+    [-30,-10, 30, 40, 40, 30,-10,-30],
+    [-30,-10, 30, 40, 40, 30,-10,-30],
+    [-30,-10, 20, 30, 30, 20,-10,-30],
+    [-30,-30,  0,  0,  0,  0,-30,-30],
+    [-50,-30,-30,-30,-30,-30,-30,-50]
+]
 MOVE_CACHE = {}
 
 
@@ -98,6 +108,57 @@ def choose_random_move(board: Board) -> Move:
     """Return a uniformly random legal move or None if no moves exist."""
     legal = board.legal_moves()
     return random.choice(legal) if legal else None
+
+
+def is_endgame(board: Board) -> bool:
+    """Check if we are in the endgame phase (no queens usually indicates endgame)."""
+    queens_count = 0
+    for r in range(8):
+        for c in range(8):
+            piece = board.piece_at(r, c)
+            if piece and piece[1] == 'Q':
+                queens_count += 1
+    return queens_count == 0
+
+
+def get_pawn_structure_score(board: Board) -> int:
+    """Calculates penalties for doubled and isolated pawns."""
+    white_score = 0
+    black_score = 0
+    white_pawns = [0] * 8
+    black_pawns = [0] * 8
+
+    # Map pawn counts per column
+    for r in range(8):
+        for c in range(8):
+            piece = board.piece_at(r, c)
+            if piece == ('w', 'P'):
+                white_pawns[c] += 1
+            elif piece == ('b', 'P'):
+                black_pawns[c] += 1
+
+    # Calculate penalties
+    for c in range(8):
+        # Penalty for Doubled Pawns
+        if white_pawns[c] > 1: white_score -= 20
+        if black_pawns[c] > 1: black_score -= 20
+
+        # Penalty for Isolated Pawns
+        # For White:
+        if white_pawns[c] > 0:
+            has_left = (c > 0 and white_pawns[c - 1] > 0)
+            has_right = (c < 7 and white_pawns[c + 1] > 0)
+            if not has_left and not has_right:
+                white_score -= 30
+
+        # For Black:
+        if black_pawns[c] > 0:
+            has_left = (c > 0 and black_pawns[c - 1] > 0)
+            has_right = (c < 7 and black_pawns[c + 1] > 0)
+            if not has_left and not has_right:
+                black_score -= 30
+
+    return white_score - black_score
 
 
 def get_loc_score(board: Board, r: int, c: int) -> int:
@@ -117,11 +178,29 @@ def get_loc_score(board: Board, r: int, c: int) -> int:
 
 def raw_heuristic(board: Board) -> int:
     score = 0
-    # gives pieces score based on their location
+    endgame_phase = is_endgame(board)
+
+    # 1. Material & Location Score
     for r in range(8):
         for c in range(8):
-            if board.piece_at(r, c):
-                score += get_loc_score(board, r, c)
+            piece = board.piece_at(r, c)
+            if piece:
+                piece_color = piece[0]  # 'w' or 'b'
+                piece_type = piece[1]  # 'P', 'N', 'B', ...
+                sign = 1 if piece_color == 'w' else -1
+
+                # Choose scoring table: use endgame table for King if in endgame
+                if piece_type == 'K' and endgame_phase:
+                    location_bonus = KING_ENDGAME_SCORE[r][c]
+                else:
+                    location_bonus = PIECES_LOCATION_SCORE[piece_type][r][c]
+
+                material_value = PIECES_SCORE[piece_type]
+                score += (material_value + location_bonus) * sign
+
+    # 2. Pawn Structure Score
+    score += get_pawn_structure_score(board)
+
     return score
 
 
