@@ -204,6 +204,51 @@ def raw_heuristic(board: Board) -> int:
     return score
 
 
+def quiescence_max(board: Board, alpha: float, beta: float) -> float:
+    """
+    Quiescence search for the maximizing player (White).
+    Only searches capture moves to avoid the horizon effect.
+    """
+    stand_pat = raw_heuristic(board)
+    if stand_pat >= beta:
+        return beta
+    if stand_pat > alpha:
+        alpha = stand_pat
+    for move in board.legal_moves():
+        if board.piece_at(move.dst[0], move.dst[1]):
+            new_board = board.clone()
+            new_board.make(move)
+            score = quiescence_min(new_board, alpha, beta)
+            if score >= beta:
+                return beta
+            if score > alpha:
+                alpha = score
+    return alpha
+
+
+def quiescence_min(board: Board, alpha: float, beta: float) -> float:
+    """
+    Quiescence search for the minimizing player (Black).
+    Only searches capture moves to avoid the horizon effect.
+    """
+    stand_pat = raw_heuristic(board)
+    if stand_pat <= alpha:
+        return alpha
+    if stand_pat < beta:
+        beta = stand_pat
+    for move in board.legal_moves():
+        if board.piece_at(move.dst[0], move.dst[1]):
+            new_board = board.clone()
+            new_board.make(move)
+            score = quiescence_max(new_board, alpha, beta)
+            if score <= alpha:
+                return alpha
+            if score < beta:
+                beta = score
+
+    return beta
+
+
 def evaluate(board: Board) -> float:
     """
     Calculate heuristic score from White's perspective.
@@ -357,7 +402,7 @@ def alpha_beta_max_component(board: Board, depth: int, nodes_visited: Set[Board]
     nodes_visited.add(board)
     if depth == 0:
         if not board.is_check(board.turn):
-            return raw_heuristic(board), None
+            return quiescence_max(board, alpha, beta), None
         if not list(board.legal_moves()):
             return float('-inf'), None
         return raw_heuristic(board), None
@@ -398,7 +443,7 @@ def alpha_beta_min_component(board: Board, depth: int, nodes_visited: Set[Board]
     nodes_visited.add(board)
     if depth == 0:
         if not board.is_check(board.turn):
-            return raw_heuristic(board), None
+            return quiescence_min(board, alpha, beta), None
         if not list(board.legal_moves()):
             return float('inf'), None
         return raw_heuristic(board), None
