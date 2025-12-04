@@ -12,6 +12,17 @@ Self-contained chess GUI + AI assignment.
 - Supported AI algorithms: random, eval, minimax, alphabeta. All AI implementation code in located at `chesslab/ai/ai.py`
 
 
+# AI Explenation
+The base AI algorithm I rely on in this project is alpha-beta pruning, While the goal is to improve the running time of it to support bigger depths of search.
+To do so: 
+  - I added IDS that yields The best move we found in every layer (to handle time limits per play)
+  - The board to explore are sorted based on board evaluation
+With those 2 additions I hope to cut branches much faster and save running time.
+
+In addition, I wrote the huristic function to minimize the calls to legal_moves since this function takes a lot of time to run 
+
+
 #Versions
 
   - MS1- Normal minmax and alpha-bete pruning 
+  - MS2- Tournament Code. IDS based on alpha-beta pruning with minimum bottlenecks
