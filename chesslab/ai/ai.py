@@ -362,7 +362,7 @@ def choose_alphabeta_move(board: Board, depth: int=3, metrics=None):
 def choose_move(board: Board):
     # iterative deeping
     for depth in range(1, 50):
-        best_score, best_move = choose_alphabeta_move(board, depth)
+        best_move, nodes_visited = choose_alphabeta_move(board, depth)
         if best_move:
             yield best_move
 
