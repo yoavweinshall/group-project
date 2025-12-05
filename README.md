@@ -13,13 +13,17 @@ Self-contained chess GUI + AI assignment.
 
 
 # AI Agent Algorithm Explanation
-The base AI algorithm I rely on in this project is alpha-beta pruning, While the goal is to improve the running time of it to support bigger depths of search.
-To do so: 
-  - I added IDS that yields The best move we found in every layer (to handle time limits per play)
-  - The board to explore are sorted based on board evaluation
-With those 2 additions I hope to cut branches much faster and save running time.
+The base AI algorithm I rely on in this project is alpha-beta pruning. But I added some changes to the algorithm to improve performances:
+  - To handel time limits, I added IDS that yields The best move we found in every layer (to handle time limits per play)
+  - As deeper I can go the better the decision the agent is going to make. To go deeper, we need to work faster (time limit). 
+One way is to make the pruning happen faster. Therefore, the boards to explore are sorted based on board evaluation so we estimate which 
+  move will be the best in advance (asked Gemini: "How can I make the pruning happen faster?")
+    - In addition, Since in chess You can get to the same board by different series of actions when we can remember boards that we got and
+      write what is the best move that we calculated when we visited this board last time which is very likely to be still the 
+      best move therefore we'll put the best move we calculated in the past in the top of the order. This technic called
+      Transposition Table. (asked Gemini: "Is There any way to use boards I already visited in my advantaged to save time")
 
-In addition, I tried to avoid as much as I can from Board.copy() since it's a bottleneck. To do so: 
+In addition, I tried to avoid as much as I can from Board.clone() since it's a bottleneck. To do so: 
 - Wrote the heuristic function to minimize the calls to legal_moves since this function uses a lot of deep copies
 - Added a context manager for branching so when I go deep I do the moves on the actual board game and when I return, 
 I undo the move.
@@ -30,3 +34,5 @@ I undo the move.
   - MS1- Normal minmax and alpha-bete pruning 
   - MS2- Tournament Code. IDS based on alpha-beta pruning with minimum bottlenecks
 
+
+**Since I don't play chess I Used AI to get the evaluation functions. (asked Gemini: "Can you give me heuristic function for chess?")
