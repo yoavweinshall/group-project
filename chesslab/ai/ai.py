@@ -367,7 +367,7 @@ def minmax_max_component(board: Board, depth: int, nodes_visited: Set[Board]) ->
     :param nodes_visited: set of boards visited while calculating next move.
     :return: tuple of best move score (highest) and move itself
     """
-    nodes_visited.add(board)
+    nodes_visited.add(board.clone())
     if depth == 0 or is_terminal(board):
         return evaluate(board), None
     best_move = None
@@ -389,7 +389,7 @@ def minmax_min_component(board: Board, depth: int, nodes_visited: Set[Board]) ->
     :param nodes_visited: set of boards visited while calculating next move.
     :return: tuple of best move score (lowest) and move itself
     """
-    nodes_visited.add(board)
+    nodes_visited.add(board.clone())
     if depth == 0 or is_terminal(board):
         return evaluate(board), None
     best_move = None
