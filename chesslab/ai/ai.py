@@ -78,7 +78,7 @@ PIECES_LOCATION_SCORE = {
                         [-30,-40,-40,-50,-50,-40,-40,-30],
                         [-20,-30,-30,-40,-40,-30,-30,-20],
                         [-10,-20,-20,-20,-20,-20,-20,-10],
-                        [20, 20,  0,  0,  0,  0, 20, 20],
+                        [-10,0,-10,-20,-20,-10,0,-10],
                         [20, 30, 10,  0,  0, 10, 30, 20]
                     ]
                 }
@@ -253,11 +253,13 @@ def raw_heuristic(board: Board) -> int:
                 piece_type = piece[1]  # 'P', 'N', 'B', ...
                 sign = 1 if piece_color == 'w' else -1
 
+                table_r = r if piece_color == 'w' else 7 - r
+
                 # Choose scoring table: use endgame table for King if in endgame
                 if piece_type == 'K' and endgame_phase:
-                    location_bonus = KING_ENDGAME_SCORE[r][c]
+                    location_bonus = KING_ENDGAME_SCORE[table_r][c]
                 else:
-                    location_bonus = PIECES_LOCATION_SCORE[piece_type][r][c]
+                    location_bonus = PIECES_LOCATION_SCORE[piece_type][table_r][c]
 
                 material_value = PIECES_SCORE[piece_type]
                 score += (material_value + location_bonus) * sign
@@ -319,8 +321,8 @@ def evaluate(board: Board) -> float:
     # check terminal state of game
     if is_terminal(board):
         if board.turn == 'white':
-            return float('inf')
-        return -float('inf')
+            return -float('inf')
+        return float('inf')
     return raw_heuristic(board)
 
 
