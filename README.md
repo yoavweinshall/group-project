@@ -19,10 +19,13 @@ To do so:
   - The board to explore are sorted based on board evaluation
 With those 2 additions I hope to cut branches much faster and save running time.
 
-In addition, I wrote the huristic function to minimize the calls to legal_moves since this function takes a lot of time to run 
+In addition, I tried to avoid as much as I can from Board.copy() since it's a bottleneck. To do so: 
+- Wrote the heuristic function to minimize the calls to legal_moves since this function uses a lot of deep copies
+- Added a context manager for branching so when I go deep I do the moves on the actual board game and when I return the
+I undo the move.
 
 
-#Versions
+# Versions
 
   - MS1- Normal minmax and alpha-bete pruning 
   - MS2- Tournament Code. IDS based on alpha-beta pruning with minimum bottlenecks
