@@ -196,7 +196,7 @@ def get_pawn_structure_score(board: Board) -> int:
     for r in range(8):
         for c in range(8):
             piece = board.piece_at(r, c)
-            if piece == ('w', 'P'):
+            if piece == (WHITE, 'P'):
                 white_pawns[c] += 1
             elif piece == ('b', 'P'):
                 black_pawns[c] += 1
@@ -225,21 +225,6 @@ def get_pawn_structure_score(board: Board) -> int:
     return white_score - black_score
 
 
-def get_loc_score(board: Board, r: int, c: int) -> int:
-    """
-    add location bonus to heuristic function based on piece location on board.
-    :param board: current state of the board.
-    :param r: row index.
-    :param c: column index.
-    :return: location bonus score
-    """
-    if board.piece_at(r, c):
-        piece = board.piece_at(r, c)
-        piece_sign = 1 if piece[0] == 'w' else -1
-        return (PIECES_LOCATION_SCORE[piece[1]][r][c] + PIECES_SCORE[piece[1]]) * piece_sign
-    return 0
-
-
 def raw_heuristic(board: Board) -> int:
     score = 0
     endgame_phase = is_endgame(board)
@@ -251,9 +236,9 @@ def raw_heuristic(board: Board) -> int:
             if piece:
                 piece_color = piece[0]  # 'w' or 'b'
                 piece_type = piece[1]  # 'P', 'N', 'B', ...
-                sign = 1 if piece_color == 'w' else -1
+                sign = 1 if piece_color == WHITE else -1
 
-                table_r = r if piece_color == 'w' else 7 - r
+                table_r = r if piece_color == WHITE else 7 - r
 
                 # Choose scoring table: use endgame table for King if in endgame
                 if piece_type == 'K' and endgame_phase:
@@ -268,48 +253,6 @@ def raw_heuristic(board: Board) -> int:
     score += get_pawn_structure_score(board)
 
     return score
-
-
-def quiescence_max(board: Board, alpha: float, beta: float) -> float:
-    """
-    Quiescence search for the maximizing player (White).
-    Only searches capture moves to avoid the horizon effect.
-    """
-    stand_pat = raw_heuristic(board)
-    if stand_pat >= beta:
-        return beta
-    if stand_pat > alpha:
-        alpha = stand_pat
-    for move in board.legal_moves():
-        if board.piece_at(move.dst[0], move.dst[1]):
-            with MoveContextManager(board, move):
-                score = quiescence_min(board, alpha, beta)
-                if score >= beta:
-                    return beta
-                if score > alpha:
-                    alpha = score
-    return alpha
-
-
-def quiescence_min(board: Board, alpha: float, beta: float) -> float:
-    """
-    Quiescence search for the minimizing player (Black).
-    Only searches capture moves to avoid the horizon effect.
-    """
-    stand_pat = raw_heuristic(board)
-    if stand_pat <= alpha:
-        return alpha
-    if stand_pat < beta:
-        beta = stand_pat
-    for move in board.legal_moves():
-        if board.piece_at(move.dst[0], move.dst[1]):
-            with MoveContextManager(board, move):
-                score = quiescence_max(board, alpha, beta)
-                if score <= alpha:
-                    return alpha
-                if score < beta:
-                    beta = score
-    return beta
 
 
 def evaluate(board: Board) -> float:
@@ -470,7 +413,7 @@ def alpha_beta_max_component(board: Board, depth: int, nodes_visited: Set[Board]
 
     if depth == 0:
         if not board.is_check(board.turn):
-            return quiescence_max(board, alpha, beta), None
+            return raw_heuristic(board), None
         if not list(board.legal_moves()):
             return float('-inf'), None
         return raw_heuristic(board), None
@@ -522,7 +465,7 @@ def alpha_beta_min_component(board: Board, depth: int, nodes_visited: Set[Board]
     original_beta = beta  # Save for flag calculation
     if depth == 0:
         if not board.is_check(board.turn):
-            return quiescence_min(board, alpha, beta), None
+            return raw_heuristic(board), None
         if not list(board.legal_moves()):
             return float('inf'), None
         return raw_heuristic(board), None
@@ -567,8 +510,9 @@ def choose_alphabeta_move(board: Board, depth: int=3, metrics=None):
 
 def choose_move(board: Board):
     # iterative deeping
-    for depth in range(1, 50):
+    depth = 1
+    while True:
         best_move, nodes_visited = choose_alphabeta_move(board, depth)
+        depth += 1
         if best_move:
             yield best_move
-
