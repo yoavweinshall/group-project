@@ -389,14 +389,13 @@ def get_ordered_moves(board: Board, tt_move: Optional[Move] = None):
     return legal_moves
 
 
-def alpha_beta_max_component(board: Board, depth: int, nodes_visited: Set[Board],
-                             alpha: float = -float('inf'), beta: float = float('inf')) -> Tuple[float,  Optional[Move]]:
+def alpha_beta_max_component(board: Board, depth: int,alpha: float = -float('inf'), beta: float = float('inf'))\
+        -> Tuple[float,  Optional[Move]]:
     """
     Goes over possibilities to move and return the one that that will give us the biggest value according to minmax algorithm.
     Uses alpha-beta pruning to avoid exploring dead cause branches and save compute time
     :param board: current state of the board.
     :param depth: depth to go into game branches
-    :param nodes_visited: set of boards visited while calculating next move.
     :param alpha: lower bound on the score we already secured in previous branches
     :param beta: upper bound on the score we already secured in previous branches
     :return: tuple of best move score (highest) and move itself
@@ -405,10 +404,8 @@ def alpha_beta_max_component(board: Board, depth: int, nodes_visited: Set[Board]
     tt_score, tt_move = probe_tt(board, depth, alpha, beta)
     if tt_score is not None:
         # If we got a valid score from cache, return it immediately!
-        nodes_visited.add(board)
         return tt_score, tt_move
 
-    nodes_visited.add(board)
     original_alpha = alpha
 
     if depth == 0:
@@ -428,7 +425,7 @@ def alpha_beta_max_component(board: Board, depth: int, nodes_visited: Set[Board]
         return evaluate(board), None
     for move in legal_moves:
         with MoveContextManager(board, move):
-            value, _ = alpha_beta_min_component(board, depth - 1, nodes_visited, alpha, beta)
+            value, _ = alpha_beta_min_component(board, depth - 1, alpha, beta)
             if value > best_score:
                 best_score = value
                 best_move = move
@@ -444,24 +441,21 @@ def alpha_beta_max_component(board: Board, depth: int, nodes_visited: Set[Board]
     return best_score, best_move
 
 
-def alpha_beta_min_component(board: Board, depth: int, nodes_visited: Set[Board],
-                             alpha: float = -float('inf'), beta: float = float('inf')) -> Tuple[float,  Optional[Move]]:
+def alpha_beta_min_component(board: Board, depth: int,alpha: float = -float('inf'), beta: float = float('inf'))\
+        -> Tuple[float,  Optional[Move]]:
     """
     Goes over possibilities to move and return the one that that will give us the smallest value according to minmax algorithm.
     Uses alpha-beta pruning to avoid exploring dead cause branches and save compute time.
     :param board: current state of the board.
     :param depth: depth to go into game branches
-    :param nodes_visited: set of boards visited while calculating next move.
     :param alpha: lower bound on the score we already secured in previous branches
     :param beta: upper bound on the score we already secured in previous branches
     :return: tuple of best move score (lowest) and move itself
     """
     tt_score, tt_move = probe_tt(board, depth, alpha, beta)
     if tt_score is not None:
-        nodes_visited.add(board)
         return tt_score, tt_move
 
-    nodes_visited.add(board)
     original_beta = beta  # Save for flag calculation
     if depth == 0:
         if not board.is_check(board.turn):
@@ -477,7 +471,7 @@ def alpha_beta_min_component(board: Board, depth: int, nodes_visited: Set[Board]
         return evaluate(board), None
     for move in legal_moves:
         with MoveContextManager(board, move):
-            value, made_move = alpha_beta_max_component(board, depth - 1, nodes_visited, alpha, beta)
+            value, made_move = alpha_beta_max_component(board, depth - 1, alpha, beta)
             if value < best_score:
                 best_score = value
                 best_move = move
@@ -502,9 +496,9 @@ def choose_alphabeta_move(board: Board, depth: int=3, metrics=None):
     """
     nodes_visited = set()
     if board.turn == WHITE:
-        best_score, best_move = alpha_beta_max_component(board, depth, nodes_visited)
+        best_score, best_move = alpha_beta_max_component(board, depth)
     else:
-        best_score, best_move = alpha_beta_min_component(board, depth, nodes_visited)
+        best_score, best_move = alpha_beta_min_component(board, depth)
     return best_move, nodes_visited
 
 
