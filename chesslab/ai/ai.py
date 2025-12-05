@@ -15,7 +15,7 @@ from __future__ import annotations
 import random
 from typing import Optional, Tuple, Set
 
-from ..board import Board, Move
+from ..board import Board, Move, WHITE
 from ..common.profiling import Counter
 
 MoveType = Tuple[Tuple[int, int], Tuple[int, int], Optional[str]]
@@ -320,7 +320,7 @@ def evaluate(board: Board) -> float:
     """
     # check terminal state of game
     if is_terminal(board):
-        if board.turn == 'white':
+        if board.turn == WHITE:
             return -float('inf')
         return float('inf')
     return raw_heuristic(board)
@@ -413,7 +413,7 @@ def choose_minimax_move(board: Board, depth: int=2, metrics=None) -> Tuple[Move,
         (best_move, nodes_visited)
     """
     nodes_visited = set()
-    if board.turn == 'white':
+    if board.turn == WHITE:
         best_score, best_move = minmax_max_component(board, depth, nodes_visited)
     else:
         best_score, best_move = minmax_min_component(board, depth, nodes_visited)
@@ -558,7 +558,7 @@ def choose_alphabeta_move(board: Board, depth: int=3, metrics=None):
         (best_move, nodes_visited)
     """
     nodes_visited = set()
-    if board.turn == 'white':
+    if board.turn == WHITE:
         best_score, best_move = alpha_beta_max_component(board, depth, nodes_visited)
     else:
         best_score, best_move = alpha_beta_min_component(board, depth, nodes_visited)
