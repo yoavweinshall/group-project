@@ -12,7 +12,7 @@ Self-contained chess GUI + AI assignment.
 - Supported AI algorithms: random, eval, minimax, alphabeta. All AI implementation code in located at `chesslab/ai/ai.py`
 
 
-# AI Explenation
+# AI Explanation
 The base AI algorithm I rely on in this project is alpha-beta pruning, While the goal is to improve the running time of it to support bigger depths of search.
 To do so: 
   - I added IDS that yields The best move we found in every layer (to handle time limits per play)
@@ -21,7 +21,7 @@ With those 2 additions I hope to cut branches much faster and save running time.
 
 In addition, I tried to avoid as much as I can from Board.copy() since it's a bottleneck. To do so: 
 - Wrote the heuristic function to minimize the calls to legal_moves since this function uses a lot of deep copies
-- Added a context manager for branching so when I go deep I do the moves on the actual board game and when I return the
+- Added a context manager for branching so when I go deep I do the moves on the actual board game and when I return, 
 I undo the move.
 
 
