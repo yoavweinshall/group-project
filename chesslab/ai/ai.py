@@ -92,7 +92,32 @@ KING_ENDGAME_SCORE = [  # King endgame table - encourages moving to the center
     [-30,-30,  0,  0,  0,  0,-30,-30],
     [-50,-30,-30,-30,-30,-30,-30,-50]
 ]
-MOVE_CACHE = {}
+
+TRANSPOSITION_TABLE = {}
+
+# Flags for the table
+FLAG_EXACT = 0
+FLAG_LOWERBOUND = 1
+FLAG_UPPERBOUND = 2
+
+
+class MoveContextManager:
+    def __init__(self, board: Board, move: Move):
+        self.board = board
+        self.move = move
+        self.eaten = board.piece_at(*self.move.dst)
+        self.piece = board.piece_at(*self.move.src)
+
+    def __enter__(self):
+        self.board.make(self.move)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        (sr, sc), (dr, dc), promote = self.move
+        rev_move = Move((dr, dc), (sr, sc), None)
+        self.board.make(rev_move)
+        self.board.board[dr][dc] = self.eaten
+        if promote:
+            self.board.board[sr][sc] = self.piece
 
 
 def get_board_key(board):
@@ -102,6 +127,45 @@ def get_board_key(board):
     :return: the hash key
     """
     return board.turn, tuple(tuple(row) for row in board.board)
+
+
+def store_tt(board: Board, depth: int, score: float, flag: int, best_move: Optional[Move]):
+    """Stores a position in the Transposition Table."""
+    key = get_board_key(board)
+    TRANSPOSITION_TABLE[key] = {
+        'depth': depth,
+        'score': score,
+        'flag': flag,
+        'move': best_move
+    }
+
+
+def probe_tt(board: Board, depth: int, alpha: float, beta: float) -> Tuple[Optional[float], Optional[Move]]:
+    """
+    Checks if the current board position is already in the table.
+    Returns (score, best_move) if usable, else (None, best_move_for_ordering).
+    """
+    key = get_board_key(board)
+    entry = TRANSPOSITION_TABLE.get(key)
+
+    if not entry:
+        return None, None
+
+    # We can always use the cached move for ordering, even if depth is low
+    cached_move = entry['move']
+
+    # We can only use the SCORE if the cached depth is sufficient
+    if entry['depth'] >= depth:
+        if entry['flag'] == FLAG_EXACT:
+            return entry['score'], cached_move
+        elif entry['flag'] == FLAG_LOWERBOUND:
+            if entry['score'] >= beta:
+                return entry['score'], cached_move
+        elif entry['flag'] == FLAG_UPPERBOUND:
+            if entry['score'] <= alpha:
+                return entry['score'], cached_move
+
+    return None, cached_move
 
 
 def choose_random_move(board: Board) -> Move:
@@ -216,13 +280,12 @@ def quiescence_max(board: Board, alpha: float, beta: float) -> float:
         alpha = stand_pat
     for move in board.legal_moves():
         if board.piece_at(move.dst[0], move.dst[1]):
-            new_board = board.clone()
-            new_board.make(move)
-            score = quiescence_min(new_board, alpha, beta)
-            if score >= beta:
-                return beta
-            if score > alpha:
-                alpha = score
+            with MoveContextManager(board, move):
+                score = quiescence_min(board, alpha, beta)
+                if score >= beta:
+                    return beta
+                if score > alpha:
+                    alpha = score
     return alpha
 
 
@@ -238,14 +301,12 @@ def quiescence_min(board: Board, alpha: float, beta: float) -> float:
         beta = stand_pat
     for move in board.legal_moves():
         if board.piece_at(move.dst[0], move.dst[1]):
-            new_board = board.clone()
-            new_board.make(move)
-            score = quiescence_max(new_board, alpha, beta)
-            if score <= alpha:
-                return alpha
-            if score < beta:
-                beta = score
-
+            with MoveContextManager(board, move):
+                score = quiescence_max(board, alpha, beta)
+                if score <= alpha:
+                    return alpha
+                if score < beta:
+                    beta = score
     return beta
 
 
@@ -312,12 +373,11 @@ def minmax_max_component(board: Board, depth: int, nodes_visited: Set[Board]) ->
     best_move = None
     best_score = -float('inf')
     for move in board.legal_moves():
-        new_board = board.clone()
-        new_board.make(move)
-        value, made_move = minmax_min_component(new_board, depth - 1, nodes_visited)
-        if value > best_score:
-            best_score = value
-            best_move = move
+        with MoveContextManager(board, move):
+            value, made_move = minmax_min_component(board, depth - 1, nodes_visited)
+            if value > best_score:
+                best_score = value
+                best_move = move
     return best_score, best_move
 
 
@@ -335,12 +395,11 @@ def minmax_min_component(board: Board, depth: int, nodes_visited: Set[Board]) ->
     best_move = None
     best_score = float('inf')
     for move in board.legal_moves():
-        new_board = board.clone()
-        new_board.make(move)
-        value, made_move = minmax_max_component(new_board, depth - 1, nodes_visited)
-        if value < best_score:
-            best_score = value
-            best_move = move
+        with MoveContextManager(board, move):
+            value, made_move = minmax_max_component(board, depth - 1, nodes_visited)
+            if value < best_score:
+                best_score = value
+                best_move = move
     return best_score, best_move
 
 
@@ -359,29 +418,29 @@ def choose_minimax_move(board: Board, depth: int=2, metrics=None) -> Tuple[Move,
     return best_move, nodes_visited
 
 
-def get_ordered_moves(board: Board, board_key):
+def get_ordered_moves(board: Board, tt_move: Optional[Move] = None):
     """
     Order the legal moves properly to save time while branching
-    :param board: current state of the board.
-    :param board_key: key for board.
-    :return: ordered moves to branch
     """
     legal_moves = list(board.legal_moves())
-    hash_move = MOVE_CACHE.get(board_key)
 
-    if hash_move:
-        others = []
-        found_hash = False
-        for move in legal_moves:
-            if move.src == hash_move.src and move.dst == hash_move.dst:
-                found_hash = True
-            else:
-                others.append(move)
-        others.sort(key=lambda m: get_move_score(board, m), reverse=True)
-        if found_hash:
-            return [hash_move] + others
-        return others
-    legal_moves.sort(key=lambda m: get_move_score(board, m), reverse=True)
+    if not legal_moves:
+        return []
+
+    # If we have a move from the Transposition Table, try it first!
+    if tt_move:
+        # Move the tt_move to the front if it is in legal_moves
+        for i, move in enumerate(legal_moves):
+            if move.src == tt_move.src and move.dst == tt_move.dst:
+                legal_moves.pop(i)
+                legal_moves.insert(0, move)
+                break
+
+    # Sort the rest using MVV-LVA (Captures first)
+    # We leave the first move alone if it was the TT move
+    start_index = 1 if tt_move else 0
+    legal_moves[start_index:] = sorted(legal_moves[start_index:], key=lambda m: get_move_score(board, m), reverse=True)
+
     return legal_moves
 
 
@@ -398,8 +457,15 @@ def alpha_beta_max_component(board: Board, depth: int, nodes_visited: Set[Board]
     :return: tuple of best move score (highest) and move itself
     """
 
-    board_key = get_board_key(board)
+    tt_score, tt_move = probe_tt(board, depth, alpha, beta)
+    if tt_score is not None:
+        # If we got a valid score from cache, return it immediately!
+        nodes_visited.add(board)
+        return tt_score, tt_move
+
     nodes_visited.add(board)
+    original_alpha = alpha
+
     if depth == 0:
         if not board.is_check(board.turn):
             return quiescence_max(board, alpha, beta), None
@@ -407,23 +473,29 @@ def alpha_beta_max_component(board: Board, depth: int, nodes_visited: Set[Board]
             return float('-inf'), None
         return raw_heuristic(board), None
 
+    if is_terminal(board):
+        return evaluate(board), None
+
     best_move = None
     best_score = -float('inf')
-    legal_moves = get_ordered_moves(board, board_key)
+    legal_moves = get_ordered_moves(board, tt_move)
     if not legal_moves:
         return evaluate(board), None
     for move in legal_moves:
-        new_board = board.clone()
-        new_board.make(move)
-        value, made_move = alpha_beta_min_component(new_board, depth - 1, nodes_visited, alpha, beta)
-        if value > best_score:
-            best_score = value
-            best_move = move
-            alpha = max(alpha, best_score)
-            if alpha >= beta:
-                MOVE_CACHE[board_key] = best_move
-                return best_score, best_move
-    MOVE_CACHE[board_key] = best_move
+        with MoveContextManager(board, move):
+            value, _ = alpha_beta_min_component(board, depth - 1, nodes_visited, alpha, beta)
+            if value > best_score:
+                best_score = value
+                best_move = move
+                alpha = max(alpha, best_score)
+                if alpha >= beta:
+                    break
+    flag = FLAG_EXACT
+    if best_score <= original_alpha:
+        flag = FLAG_UPPERBOUND
+    elif best_score >= beta:
+        flag = FLAG_LOWERBOUND
+    store_tt(board, depth, best_score, flag, best_move)
     return best_score, best_move
 
 
@@ -439,8 +511,13 @@ def alpha_beta_min_component(board: Board, depth: int, nodes_visited: Set[Board]
     :param beta: upper bound on the score we already secured in previous branches
     :return: tuple of best move score (lowest) and move itself
     """
-    board_key = get_board_key(board)
+    tt_score, tt_move = probe_tt(board, depth, alpha, beta)
+    if tt_score is not None:
+        nodes_visited.add(board)
+        return tt_score, tt_move
+
     nodes_visited.add(board)
+    original_beta = beta  # Save for flag calculation
     if depth == 0:
         if not board.is_check(board.turn):
             return quiescence_min(board, alpha, beta), None
@@ -450,21 +527,24 @@ def alpha_beta_min_component(board: Board, depth: int, nodes_visited: Set[Board]
 
     best_move = None
     best_score = float('inf')
-    legal_moves = get_ordered_moves(board, board_key)
+    legal_moves = get_ordered_moves(board, tt_move)
     if not legal_moves:
         return evaluate(board), None
     for move in legal_moves:
-        new_board = board.clone()
-        new_board.make(move)
-        value, made_move = alpha_beta_max_component(new_board, depth - 1, nodes_visited, alpha, beta)
-        if value < best_score:
-            best_score = value
-            best_move = move
-            beta = min(beta, best_score)
-            if alpha >= beta:
-                MOVE_CACHE[board_key] = best_move
-                return best_score, best_move
-    MOVE_CACHE[board_key] = best_move
+        with MoveContextManager(board, move):
+            value, made_move = alpha_beta_max_component(board, depth - 1, nodes_visited, alpha, beta)
+            if value < best_score:
+                best_score = value
+                best_move = move
+                beta = min(beta, best_score)
+                if alpha >= beta:
+                    break
+    flag = FLAG_EXACT
+    if best_score <= alpha:
+        flag = FLAG_UPPERBOUND
+    elif best_score >= original_beta:
+        flag = FLAG_LOWERBOUND
+    store_tt(board, depth, best_score, flag, best_move)
     return best_score, best_move
 
 
