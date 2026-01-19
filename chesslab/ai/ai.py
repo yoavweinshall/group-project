@@ -13,7 +13,7 @@ The helper `choose_random_move` is provided for you.
 from __future__ import annotations
 
 import random
-from typing import Optional, Tuple, Set
+from typing import Optional, Tuple
 
 from ..board import Board, Move, WHITE
 from ..common.profiling import Counter
@@ -302,65 +302,6 @@ def get_move_score(board: Board, move: Move) -> int:
         score += 1000
 
     return score
-
-
-def minmax_max_component(board: Board, depth: int, nodes_visited: Set[Board]) -> Tuple[float, Optional[Move]]:
-    """
-    Goes over all possibilities to move and return the one that that will give us the biggest value according to minmax algorithm
-    :param board: current state of the board.
-    :param depth: depth to go into game branches
-    :param nodes_visited: set of boards visited while calculating next move.
-    :return: tuple of best move score (highest) and move itself
-    """
-    nodes_visited.add(board.clone())
-    if depth == 0 or is_terminal(board):
-        return evaluate(board), None
-    best_move = None
-    best_score = -float('inf')
-    for move in board.legal_moves():
-        with MoveContextManager(board, move):
-            value, made_move = minmax_min_component(board, depth - 1, nodes_visited)
-            if value > best_score:
-                best_score = value
-                best_move = move
-    return best_score, best_move
-
-
-def minmax_min_component(board: Board, depth: int, nodes_visited: Set[Board]) -> Tuple[float,  Optional[Move]]:
-    """
-    Goes over all possibilities to move and return the one that that will give us the smallest value according to minmax algorithm
-    :param board: current state of the board.
-    :param depth: depth to go into game branches
-    :param nodes_visited: set of boards visited while calculating next move.
-    :return: tuple of best move score (lowest) and move itself
-    """
-    nodes_visited.add(board.clone())
-    if depth == 0 or is_terminal(board):
-        return evaluate(board), None
-    best_move = None
-    best_score = float('inf')
-    for move in board.legal_moves():
-        with MoveContextManager(board, move):
-            value, made_move = minmax_max_component(board, depth - 1, nodes_visited)
-            if value < best_score:
-                best_score = value
-                best_move = move
-    return best_score, best_move
-
-
-def choose_minimax_move(board: Board, depth: int=2, metrics=None) -> Tuple[Move, Set[Board]]:
-    """
-    Pick a move for the current player using minimax (no pruning).
-
-    Returns:
-        (best_move, nodes_visited)
-    """
-    nodes_visited = set()
-    if board.turn == WHITE:
-        best_score, best_move = minmax_max_component(board, depth, nodes_visited)
-    else:
-        best_score, best_move = minmax_min_component(board, depth, nodes_visited)
-    return best_move, nodes_visited
 
 
 def get_ordered_moves(board: Board, tt_move: Optional[Move] = None):
